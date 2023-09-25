@@ -12,7 +12,7 @@ from collections import defaultdict
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from my_utils import get_features
+from get_feats import get_features
 import copy
 from utils.investigate_ranking import RankingHistory
 from loss.softmax_loss import CrossEntropyLabelSmooth
