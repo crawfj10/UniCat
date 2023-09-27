@@ -63,10 +63,11 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_lr_8e-3_seed_1234_60.pth'
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256_120.pth'
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
+  VISUALIZE: True
 OUTPUT_DIR: '../logs/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256'
 CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256'
 

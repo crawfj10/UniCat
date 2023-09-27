@@ -50,7 +50,7 @@ def do_train(cfg,
     loss_meter = AverageMeterList()
     acc_meter = AverageMeter()
     
-    evaluator = R1_mAP_eval(num_query, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM)
+    evaluator = R1_mAP_eval(cfg, num_query, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM)
 
     scaler = amp.GradScaler()
     # train
@@ -177,7 +177,7 @@ def do_train(cfg,
 
 def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode):
     device = "cuda"
-    evaluator = R1_mAP_eval(num_query, num_mode=num_mode, per_mode=True, average_mode=True, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
+    evaluator = R1_mAP_eval(cfg, num_query, num_mode=num_mode, per_mode=True, average_mode=True, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
 
     evaluator.reset()
 
