@@ -59,18 +59,15 @@ class Backbone(nn.Module):
         self.neck = cfg.MODEL.NECK
         self.neck_feat = cfg.TEST.NECK_FEAT
 
-        if model_name == 'resnet50':
-            self.in_planes = 2048
-            self.base = ResNet(last_stride=last_stride,
-                               block=Bottleneck,
-                               layers=[3, 4, 6, 3])
-            print('using resnet50 as a backbone')
-        else:
-            print('unsupported backbone! but got {}'.format(model_name))
+        self.in_planes = 2048
+        self.base = ResNet(last_stride=last_stride,
+                           block=Bottleneck,
+                           layers=[3, 4, 6, 3])
+        print('using resnet50 as a backbone')
 
-        if pretrain_choice == 'imagenet':
-            self.base.load_param(model_path)
-            print('Loading pretrained ImageNet model......from {}'.format(model_path))
+       # if pretrain_choice == 'imagenet':
+       #     self.base.load_param(model_path)
+       #     print('Loading pretrained ImageNet model......from {}'.format(model_path))
 
         self.gap = nn.AdaptiveAvgPool2d(1)
         self.num_classes = num_classes
@@ -82,27 +79,24 @@ class Backbone(nn.Module):
         self.bottleneck.bias.requires_grad_(False)
         self.bottleneck.apply(weights_init_kaiming)
 
-    def forward(self, x, label=None):  # label is unused if self.cos_layer == 'no'
+    def forward(self, x, **kwargs):
         x = self.base(x)
         global_feat = nn.functional.avg_pool2d(x, x.shape[2:4])
         global_feat = global_feat.view(global_feat.shape[0], -1)  # flatten to (bs, 2048)
 
-        if self.neck == 'no':
-            feat = global_feat
-        elif self.neck == 'bnneck':
-            feat = self.bottleneck(global_feat)
-
-        if self.training:
-            if self.cos_layer:
-                cls_score = self.arcface(feat, label)
-            else:
-                cls_score = self.classifier(feat)
-            return cls_score, global_feat
-        else:
-            if self.neck_feat == 'after':
-                return feat
-            else:
-                return global_feat
+        #if self.neck == 'no':
+        #    feat = global_feat
+        #elif self.neck == 'bnneck':
+        #    feat = self.bottleneck(global_feat)
+        #cls_score = self.classifier(feat)
+        return [global_feat]
+        #if self.training:
+        #    return cls_score, [global_feat]
+        #else:
+        #    if self.neck_feat == 'after':
+        #        return cls_score, [feat]
+        #    else:
+        #        return cls_score, [global_feat]
 
     def load_param(self, trained_path):
         param_dict = torch.load(trained_path)
@@ -288,7 +282,7 @@ class build_transformer_local_orig(nn.Module):
         if self.rearrange and not self.random:
             x = shuffle_unit(features, self.shift_num, self.shuffle_groups)
         elif self.rearrange:
-            rand_ind = list(range(features.size()[1]))
+            rand_ind = list(range(1, features.size(1)))
             random.shuffle(rand_ind)
             x = features[:, rand_ind]
         else:
@@ -327,39 +321,23 @@ class CrossAttention(nn.Module):
     def __init__(self, num_mode, num_class, camera_num, view_nun, cfg, factory):
         super(CrossAttention, self).__init__()
         raise NotImplementedError
-        self.mode_backbones = nn.ModuleList([])
-        if cfg.MODEL.SAME_MODEL:
-            if cfg.MODEL.NAME == 'transformer':
-                if cfg.MODEL.JPM:
-                    raise NotImplementedError
-                    print('===========building transformer with JPM module ===========')
-                    model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
-                                                 rearrange=cfg.MODEL.RE_ARRANGE)
-                else:
-                    print('===========building transformer===========')
-                    model = build_transformer(num_class, camera_num, view_num, cfg, factory)
-            else:
+        if cfg.MODEL.NAME == 'transformer':
+            if cfg.MODEL.JPM:
                 raise NotImplementedError
-                print('===========building ResNet===========')
-                model = Backbone(num_class, cfg)
-            self.mode_backbones.extend([model for _ in range(num_mode)])
-        else:
-            for _ in range(num_mode):
-                if cfg.MODEL.NAME == 'transformer':
-                    if cfg.MODEL.JPM:
-                        raise NotImplementedError
-                        print('===========building transformer with JPM module ===========')
-                        model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
+                print('===========building transformer with JPM module ===========')
+                model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
                                                  rearrange=cfg.MODEL.RE_ARRANGE)
-                    else:
-                        print('===========building transformer===========')
-                        model = build_transformer(num_class, camera_num, view_num, cfg, factory)
-                else:
-                    raise NotImplementedError
-                    print('===========building ResNet===========')
-                    model = Backbone(num_class, cfg)
-                self.mode_backbones.append(model)
-            # TODO: pretty sure I can just use deepcopy here
+            else:
+                print('===========building transformer===========')
+                model = build_transformer(num_class, camera_num, view_num, cfg, factory)
+        else:
+            raise NotImplementedError
+            print('===========building ResNet===========')
+            model = Backbone(num_class, cfg)
+        if cfg.MODEL.SAME_MODEL:
+            self.mode_backbones = nn.ModuleList([model for _ in range(num_mode)])
+        else:
+            self.mode_backbones = nn.ModuleList([copy.deepcopy(model) for _ in range(num_mode)])
 
         self.fusion_backbone = copy.deepcopy(self.mode_backbones[-1])
 
@@ -386,6 +364,7 @@ class EarlyFusion(nn.Module):
         num_channel = sum([c for c in mode_to_channels.values()])
         if cfg.MODEL.NAME == 'transformer':
             if cfg.MODEL.JPM:
+                raise NotImplementedError
                 print('===========building transformer with JPM module ===========')
                 model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
                                                  rearrange=cfg.MODEL.RE_ARRANGE, num_channel=num_channel)
@@ -439,43 +418,35 @@ class EarlyFusion(nn.Module):
 
 class LateFusion(nn.Module):
     # Options: pooling can happen via average, max or concatenation
-    # CE and triplet losses could be trained separately for each modality (like DCFormer's CLS tokens) or the pooled versions could be used
+    # CE and triplet losses could be trained separately for each modality (like DCFormer/TransReID's CLS tokens) or pooled versions of CLS tokens could be used for training
 
     def __init__(self, num_mode, num_class, camera_num, view_num, cfg, factory):
         super(LateFusion, self).__init__()
-        self.mode_backbones = nn.ModuleList([])
-        if cfg.MODEL.SAME_MODEL:
-            if cfg.MODEL.NAME == 'transformer':
-                if cfg.MODEL.JPM:
-                    print('===========building transformer with JPM module ===========')
-                    model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
+        if cfg.MODEL.NAME == 'transformer': 
+            if cfg.MODEL.JPM:
+                raise NotImplementedError
+                print('===========building transformer with JPM module ===========')
+                model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
                                                  rearrange=cfg.MODEL.RE_ARRANGE)
-                else:
-                    print('===========building transformer===========')
-                    model = build_transformer(num_class, camera_num, view_num, cfg, factory)
             else:
-                print('===========building ResNet===========')
-                model = Backbone(num_class, cfg)
-            self.mode_backbones.extend([model for _ in range(num_mode)])
+                print('===========building transformer===========')
+                model = build_transformer(num_class, camera_num, view_num, cfg, factory)
         else:
-            for _ in range(num_mode):
-                if cfg.MODEL.NAME == 'transformer':
-                    if cfg.MODEL.JPM:
-                        print('===========building transformer with JPM module ===========')
-                        model = build_transformer_local_orig(num_class, camera_num, view_num, cfg, factory,
-                                                 rearrange=cfg.MODEL.RE_ARRANGE)
-                    else:
-                        print('===========building transformer===========')
-                        model = build_transformer(num_class, camera_num, view_num, cfg, factory)
-                else:
-                    print('===========building ResNet===========')
-                    model = Backbone(num_class, cfg)
-                self.mode_backbones.append(model)
+            print('===========building ResNet===========')
+            model = Backbone(num_class, cfg)
+
+        if cfg.MODEL.SAME_MODEL:
+            self.mode_backbones = nn.ModuleList([model for _ in range(num_mode)])
+        else:
+            self.mode_backbones = nn.ModuleList([model if i == 0 else copy.deepcopy(model) for i in range(num_mode)])
+        
         self.fusion_method = cfg.MODEL.FUSION_METHOD
         assert self.fusion_method in ('av', 'max', 'cat')
+        
         self.use_fusion = cfg.MODEL.USE_FUSION
         if self.use_fusion:
             print('Training with fusion')
+        
         self.in_planes = cfg.MODEL.EMBED_DIM
         if self.use_fusion:
             num_classifier = 1
@@ -512,7 +483,7 @@ class LateFusion(nn.Module):
             mode_x = self.mode_backbones[m](x[:, m], label=label, cam_label=cam_label, view_label=view_label)
             # mode_x is list of length nbr_cls of tensors size (B, h)  h = hidden dim
             mode_feats.append(mode_x)
-        
+             
         feats = []
         bn_feats = []
         if self.use_fusion:

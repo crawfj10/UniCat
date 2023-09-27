@@ -12,7 +12,7 @@ from collections import defaultdict
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from my_utils import get_features
+from get_feats import get_features
 import copy
 from utils.investigate_ranking import RankingHistory
 from loss.softmax_loss import CrossEntropyLabelSmooth
@@ -175,17 +175,30 @@ def do_train(cfg,
             torch.cuda.empty_cache()
     return None, None
 
-def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode):
+def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode='multi', verbose=True):
     device = "cuda"
-    evaluator = R1_mAP_eval(cfg, num_query, num_mode=num_mode, per_mode=True, average_mode=True, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
-
-    evaluator.reset()
+    assert eval_mode in ('multi', 'single')
+    if eval_mode == 'multi':
+        evaluator = R1_mAP_eval(cfg, num_query, num_mode=num_mode, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
+        evaluator.reset()
+    else:
+        assert not cfg.TEST.MEAN_FEAT 
+        assert not cfg.MODEL.USE_FUSION  # model may have been trained with fusion but to obtain single-modal metrics turn this flag off
+        evaluator = []
+        for _ in range(num_mode):
+            evaluator.append(R1_mAP_eval(cfg, num_query, num_mode=1, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING))
+            evaluator[-1].reset()
 
     if device:
         if torch.cuda.device_count() > 1:
             print('Using {} GPUs for inference'.format(torch.cuda.device_count()))
             model = nn.DataParallel(model)
         model.to(device)
+    
+    if cfg.MODEL.NAME == 'transformer':
+        embed_size = cfg.MODEL.CLS_TOKEN_NUM * cfg.MODEL.EMBED_DIM
+    else:
+        embed_size = cfg.MODEL.EMBED_DIM
 
     model.eval()
     print('Running all val')
@@ -193,14 +206,33 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode):
         with torch.no_grad():
             img = img.to(device)
             camid_tensor = camid_tensor.to(device)
-            _, feat = model(img, cam_label=camid_tensor)
-            evaluator.update((feat, pid, camid))
-
+            _, feat = model(img, cam_label=camid_tensor) # feat has size (B, num_mode*nbr_cls*H)
+            if eval_mode == 'multi':
+                evaluator.update((feat, pid, camid))
+            else:
+                for m in range(num_mode):
+                    evaluator[m].update((feat[:, m*embed_size:(m+1)*embed_size], pid, camid))
     torch.cuda.empty_cache()
-    cmc, mAP = evaluator.compute()
-    print(mAP, cmc[0], cmc[4], cmc[9])
     
-    return cmc[0], cmc[4]
+    if eval_mode == 'multi':
+        cmc, mAP = evaluator.compute()
+        if verbose:
+            print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
+        return mAP, cmc
+
+    # doing single-modality (intra-modal) inference 
+    cmc_dict = {}
+    map_dict = {}
+    for m in range(num_mode):
+        cmc, mAP = evaluator[m].compute()
+        if verbose:
+            print('Mode', str(m), ':')
+            print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
+        cmc_dict[m] = cmc
+        map_dict[m] = mAP
+    return map_dict, cmc_dict
+
+
 
 def check_kl(cfg, model, val_loader, num_query, num_cam):
 

@@ -23,24 +23,30 @@ class RGBNT201(BaseImageDataset):
         assert mode in ('r', 'n', 't', 'rn', 'rt', 'nt', 'rnt')
         self.modalities = mode
 
-        t_flds, v_flds = [], []
-        v_files = None
+        train_flds, val_flds, test_flds = [], [], []
+        test_files = None
         for m in mode:
-            t_flds.append(osp.join(root, 'train/' + m.upper()))
-            v_flds.append(osp.join(root, 'validate/' + m.upper()))
-            m_v_files = [f for fld in os.listdir(v_flds[-1]) for f in os.listdir(v_flds[-1] + '/' + fld)]
-            assert v_files is None or set(m_v_files) == set(v_files)
-            v_files = m_v_files
+            train_flds.append(osp.join(root, 'train/' + m.upper() + '/'))
+            test_flds.append(osp.join(root, 'validate/' + m.upper() + '/'))
+            m_test_files = [f for fld in os.listdir(test_flds[-1]) for f in os.listdir(test_flds[-1] + fld)]
+            assert test_files is None or set(m_test_files) == set(test_files)
+            test_files = m_test_files
+
+            val_flds.append(osp.join(root, 'unnecessary_train_171/' + m.upper() + '/' ))
+            exclude_flds = os.listdir(train_flds[-1])
+            val_files = [val_flds[-1] + fld + '/' + f for fld in os.listdir(val_flds[-1]) for f in os.listdir(val_flds[-1] + fld) if fld not in exclude_flds]  
         
         q_files = os.listdir(osp.join(root, 'rgbir/query'))
-        g_files = [f for f in v_files if f not in q_files]
+        g_files = [f for f in test_files if f not in q_files]
         #g_paths = [f for fld in v_flds for f in os.listdir(fld) if f not in q_files]
         
         #self._check_before_run()
         self.pid_begin = pid_begin
-        train = self._process_files(t_flds, relabel=True)
-        query = self._process_files(v_flds, files=v_files, relabel=False, allowed_cam=None)
-        gallery = self._process_files(v_flds, files=v_files, relabel=False, allowed_cam=None)
+        train = self._process_files(train_flds, relabel=True)
+        query = self._process_files(test_flds, files=test_files, relabel=False)
+        query += self._process_files(val_flds, files=val_files, relabel=False)
+        gallery = self._process_files(test_flds, files=test_files, relabel=False)
+        gallery += self._process_files(val_flds, files=val_files, relabel=False)
 
         if verbose:
             print("=> RGBT201 loaded")

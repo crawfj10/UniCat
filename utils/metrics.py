@@ -104,7 +104,7 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, use_cam=True,  max_ra
 
 
 class R1_mAP_eval():
-    def __init__(self, cfg, num_query, num_mode=1, per_mode=False, average_mode=False, max_rank=50, use_cam=True, feat_norm=True, reranking=False):
+    def __init__(self, cfg, num_query, num_mode=1, max_rank=50, use_cam=True, feat_norm=True, reranking=False):
         super(R1_mAP_eval, self).__init__()
         self.cfg = cfg
         self.num_query = num_query
@@ -113,8 +113,6 @@ class R1_mAP_eval():
         self.reranking = reranking
         self.use_cam = use_cam
         self.num_mode = num_mode
-        self.per_mode = per_mode
-        self.average_mode = average_mode    
         if not self.use_cam:
             print('ATTENTION: Not filtering by camera')
 
@@ -137,39 +135,16 @@ class R1_mAP_eval():
         g_pids = np.asarray(self.pids[self.num_query:])
         g_camids = np.asarray(self.camids[self.num_query:])
     
-        # computing intra-mode ranking metrics
-        if self.per_mode:
-            dms = []
-            for m in range(self.num_mode):
-                mode_feats = feats[:,768*m:768*(m+1)]
-                if self.feat_norm:
-                    print("The test feature is normalized")
-                    mode_feats = torch.nn.functional.normalize(mode_feats, dim=1, p=2)  # along channel
-                qf = mode_feats[:self.num_query]
-                gf = mode_feats[self.num_query:]
-                if self.reranking:
-                    print('=> Enter reranking')
-                    # distmat = re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.3)
-                    distmat = re_ranking(qf, gf, k1=50, k2=15, lambda_value=0.3)
-                else:
-                    print('=> Computing DistMat with euclidean_distance')
-                    distmat = euclidean_distance(qf, gf)
-                cmc, mAP  = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, use_cam=self.use_cam)
-                print('Mode', str(m), ':', mAP, cmc[0], cmc[4], cmc[9])        
-                dms.append(distmat)
         if self.feat_norm:
             print("The test feature is normalized")
             feats = torch.nn.functional.normalize(feats, dim=1, p=2)  # along channel
             
         # query
         qf = feats[:self.num_query]
-
         # gallery
         gf = feats[self.num_query:]
-        if self.per_mode and self.average_mode:
-            distmat = np.stack(dms)
-            distmat = np.mean(dms, axis=0)
-        elif self.reranking:
+
+        if self.reranking:
             print('=> Enter reranking')
             # distmat = re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.3)
             distmat = re_ranking(qf, gf, k1=50, k2=15, lambda_value=0.3)

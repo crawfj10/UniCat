@@ -7,7 +7,7 @@ MODEL:
   IF_WITH_CENTER: 'no'
   NAME: 'transformer'
   NO_MARGIN: True
-  DEVICE_ID: ('0')
+  DEVICE_ID: ('6')
   TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
   STRIDE_SIZE: [12, 12]
   CLS_TOKEN_NUM: 1
@@ -63,11 +63,10 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256_120.pth'
-  NECK_FEAT: 'before'
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth'
+  NECK_FEAT: 'after' # What does before and after indicate? 
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
-  VISUALIZE: True
-OUTPUT_DIR: '../logs/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256'
-CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1234/vit_rnt_no_fusion_s128x256'
+OUTPUT_DIR: '../logs/mm/rgbnt100/hpo/seed_1234/test'
+CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1234/test'
 

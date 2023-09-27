@@ -1,32 +1,31 @@
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
   #PRETRAIN_CHOICE: 'self'
-  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/rgbnt100/vit_rn_discrim_view_1e0_seed_1234_30.pth'
-  PRETRAIN_PATH: '/home/ubuntu/jenni/jx_vit_base_p16_224-80ecf9dd.pth'  
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_lr_8e-3_seed_1234_60.pth'
+  PRETRAIN_PATH: '/home/ubuntu/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth'  
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
-  NAME: 'transformer'
+  NAME: 'resnet'
   NO_MARGIN: True
-  DEVICE_ID: ('6')
+  DEVICE_ID: ('0')
   TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
   STRIDE_SIZE: [12, 12]
   CLS_TOKEN_NUM: 1
   CLS_TOKENS_LOSS: False
-  DIVERSE_CLS_WEIGHT: 0.5
   JPM: False
   SIE_CAMERA: False
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: False
+  USE_FUSION: True
   FUSION_METHOD: 'av'
   LATE_FUSION: True
-  EMBED_DIM: 768
+  EMBED_DIM: 2048
   SAME_MODEL: False
 
 INPUT:
-  SIZE_TRAIN: [256, 128]
-  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [128, 256]
+  SIZE_TEST: [128, 256]
   PROB: 0.5 # random horizontal flip
   RE_PROB: 0.5 # random erasing
   GS_PROB: 1.0 
@@ -35,8 +34,8 @@ INPUT:
   PIXEL_STD: [0.5, 0.5, 0.5]
 
 DATASETS:
-  NAMES: ['rgbnt201__rnt']
-  ROOT_DIR: ['/data/datasets/research-datasets/reid_mm/RGBNT201/RGBNT201']
+  NAMES: ['rgbnt100__rnt']
+  ROOT_DIR: ['/data/datasets/research-datasets/reid_mm/RGBNT100']
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -44,19 +43,19 @@ DATALOADER:
   NUM_WORKERS: 8
 
 SOLVER:
-  OPTIMIZER_NAME: 'SGD'
-  MAX_EPOCHS: 120
-  BASE_LR: .008
+  OPTIMIZER_NAME: 'Adam'
+  MAX_EPOCHS: 300
+  BASE_LR: .00035
   IMS_PER_BATCH: 64
   WARMUP_METHOD: 'linear'
   LARGE_FC_LR: False
-  CHECKPOINT_PERIOD: 120
+  CHECKPOINT_PERIOD: 301
   LOG_PERIOD: 20
   EVAL_PERIOD: 5
   WEIGHT_DECAY:  1e-4
   WEIGHT_DECAY_BIAS: 1e-4
   BIAS_LR_FACTOR: 2
-  SEED: 0
+  SEED: 1234
   DISCRIM_LR: 1e-4
   DISCRIM_DELAY: 0
 
@@ -64,11 +63,10 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt201/vit_rnt_fusion_av_lr_8e-3_seed_1234_60.pth'
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_lr_8e-3_seed_1234_60.pth'
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
-
-OUTPUT_DIR: '../logs/mm/rgbnt201/test'
-CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt201/test'
+OUTPUT_DIR: '../logs/mm/rgbnt100/resnet_rnt_no_fusion_s128x256'
+CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/test'
 

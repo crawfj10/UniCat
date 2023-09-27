@@ -50,5 +50,5 @@ if __name__ == "__main__":
     do_inference(cfg,
                 model,
                  val_loader,
-                 num_query, camera_num, num_mode)
+                 num_query, camera_num, num_mode, eval_mode='single')
 
