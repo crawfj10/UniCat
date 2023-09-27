@@ -228,8 +228,6 @@ _C.TEST.CREATE_CAM_EVAL = False
 _C.TEST.DIST_MAT = "dist_mat.npy"
 # Whether calculate the eval score option: 'True', 'False'
 _C.TEST.EVAL = False
-# whether to visualize embeddings
-_C.TEST.VISUALIZE = False
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #

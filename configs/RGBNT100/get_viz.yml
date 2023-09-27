@@ -1,7 +1,5 @@
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
-  #PRETRAIN_CHOICE: 'self'
-  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_lr_8e-3_seed_1234_60.pth'
   PRETRAIN_PATH: '/home/ubuntu/jenni/jx_vit_base_p16_224-80ecf9dd.pth'  
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
@@ -17,12 +15,16 @@ MODEL:
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: False
-  FUSION_METHOD: 'cat'
-  LATE_FUSION: True
+  USE_FUSION: False # options: {True, False} whether to use fusion
+  FUSION_METHOD: 'cat' # options: {'cat', 'av'}, can only use when USE_FUSION = True
+  LATE_FUSION: True # always set to true
   EMBED_DIM: 768
-  SAME_MODEL: False
+  SAME_MODEL: False # whether you want to use shared backbone or not, hpo ckpts are all non-shared backbone
 
+
+  # Settings to test: 
+  # USE_FUSION = False, trained with triplet/CE per modality
+  # USE_FUSION = True, trained with one triplet and CE loss gloablly across modalities
 INPUT:
   SIZE_TRAIN: [128, 256]
   SIZE_TEST: [128, 256]
@@ -63,8 +65,10 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth'
-  NECK_FEAT: 'after' 
+  # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_av_s128x256_bs_256_lr_.016_120.pth' # fusion with avg, but use cat to get correct dim output
+  # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth' # fusion with cat
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.016_120.pth' # no fusion 
+  NECK_FEAT: 'before' 
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
 OUTPUT_DIR: '../logs/mm/rgbnt100/hpo/seed_1234/test'

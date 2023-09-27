@@ -3,13 +3,6 @@ import numpy as np
 import os
 from utils.reranking import re_ranking
 from collections import defaultdict
-from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
-from matplotlib.colorbar import ColorbarBase
-from sklearn.decomposition import PCA
-import umap
-from scipy.spatial import Voronoi, voronoi_plot_2d
 
 
 def euclidean_distance(qf, gf, average_gal=False, average_mode=0, g_pids=None, feat_norm=True):
@@ -104,9 +97,8 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, use_cam=True,  max_ra
 
 
 class R1_mAP_eval():
-    def __init__(self, cfg, num_query, num_mode=1, max_rank=50, use_cam=True, feat_norm=True, reranking=False):
+    def __init__(self, num_query, num_mode=1, max_rank=50, use_cam=True, feat_norm=True, reranking=False):
         super(R1_mAP_eval, self).__init__()
-        self.cfg = cfg
         self.num_query = num_query
         self.max_rank = max_rank
         self.feat_norm = feat_norm
@@ -153,113 +145,4 @@ class R1_mAP_eval():
             distmat = euclidean_distance(qf, gf)
         cmc, mAP  = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, use_cam=self.use_cam)
 
-        if self.cfg.TEST.VISUALIZE: 
-            self.visualize_embeddings()
-        
         return cmc, mAP
-
-    # def visualize_embeddings(self):
-    #     """Visualize the embeddings using t-SNE, UMAP, and PCA with gradient legend."""
-    #     feats = torch.cat(self.feats, dim=0).numpy()
-        
-    #     # Define dimensionality reduction methods
-    #     reducers = {
-    #         "t-SNE": TSNE(n_components=2, random_state=0),
-    #         "UMAP": umap.UMAP(n_neighbors=15, min_dist=0.1, metric='correlation'),
-    #         "PCA": PCA(n_components=2)
-    #     }
-        
-    #     for name, reducer in reducers.items():
-    #         print(f"Applying {name} dimensionality reduction")
-
-    #         embeddings = reducer.fit_transform(feats)
-
-    #         plt.figure(figsize=(10, 8))
-
-    #         # Using different markers for each camid for better visualization
-    #         markers = ['o', 's', 'D', '^', 'v', '*', '+', 'x', '|', '_']
-
-    #         unique_pids = np.unique(self.pids)
-    #         colors = plt.cm.jet(np.linspace(0, 1, len(unique_pids)))
-
-    #         for idx, pid in enumerate(unique_pids):
-    #             indices = np.where(np.array(self.pids) == pid)
-    #             unique_camids_for_pid = np.unique(np.array(self.camids)[indices])
-    #             for j, camid in enumerate(unique_camids_for_pid):
-    #                 cam_indices = np.where(np.array(self.camids)[indices] == camid)
-    #                 plt.scatter(embeddings[indices][cam_indices, 0], embeddings[indices][cam_indices, 1], 
-    #                             color=colors[idx], marker=markers[j%len(markers)])
-
-    #         # Add gradient color bar as legend
-    #         norm = Normalize(vmin=min(unique_pids), vmax=max(unique_pids))
-    #         cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=plt.cm.jet), orientation='vertical')
-    #         cbar.set_label('PID')
-
-    #         plt.title(f"{name} visualization")
-    #         plt.savefig(f"{name.lower()}_visualization.png", bbox_inches='tight', dpi=300)
-
-
-
-
-    def visualize_embeddings(self):
-        """Visualize the embeddings using t-SNE, UMAP, PCA, and t-SNE with Voronoi diagram."""
-        feats = torch.cat(self.feats, dim=0).numpy()
-
-        # Define dimensionality reduction methods
-        reducers = {
-            "t-SNE": TSNE(n_components=2, random_state=0),
-            "UMAP": umap.UMAP(n_neighbors=15, min_dist=0.1, metric='correlation'),
-            "PCA": PCA(n_components=2)
-        }
-
-        for name, reducer in reducers.items():
-            print(f"Applying {name} dimensionality reduction")
-
-            embeddings = reducer.fit_transform(feats)
-
-            plt.figure(figsize=(10, 8))
-
-            # Define colors for unique PIDs
-            unique_pids = np.unique(self.pids)
-            colors = plt.cm.jet(np.linspace(0, 1, len(unique_pids)))
-
-            # Scatter plot all the embeddings
-            for idx, pid in enumerate(unique_pids):
-                indices = np.where(np.array(self.pids) == pid)
-                plt.scatter(embeddings[indices, 0], embeddings[indices, 1], color=colors[idx], s=10 if name == "t-SNE" else 50)  # smaller points for t-SNE
-    
-            # Add gradient color bar as legend
-            norm = Normalize(vmin=min(unique_pids), vmax=max(unique_pids))
-            cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=plt.cm.jet), orientation='vertical')
-            cbar.set_label('PID')
-
-            plt.title(f"{name} visualization")
-            plt.savefig(f"viz_output/{name.lower()}_visualization.png", bbox_inches='tight', dpi=300)
-
-            if name == "t-SNE":
-                # Compute the centroids of embeddings for each PID
-                centroids = []
-                for pid in unique_pids:
-                    indices = np.where(np.array(self.pids) == pid)
-                    centroid = embeddings[indices].mean(axis=0)
-                    centroids.append(centroid)
-                centroids = np.array(centroids)
-
-                # Plot Voronoi diagram over t-SNE
-                plt.figure(figsize=(10, 8))
-                vor = Voronoi(centroids)
-                fig, ax = plt.subplots()
-                voronoi_plot_2d(vor, ax=ax, show_vertices=False, show_points=False, line_colors='black', line_alpha=1, point_size=2)
-
-                # Scatter plot all the embeddings
-                for idx, pid in enumerate(unique_pids):
-                    indices = np.where(np.array(self.pids) == pid)
-                    plt.scatter(embeddings[indices, 0], embeddings[indices, 1], color=colors[idx], s=10)
-
-                # Add gradient color bar as legend
-                norm = Normalize(vmin=min(unique_pids), vmax=max(unique_pids))
-                cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=plt.cm.jet), orientation='vertical')
-                cbar.set_label('PID')
-
-                plt.title("t-SNE visualization with Voronoi diagram")
-                plt.savefig("viz_output/tsne_voronoi_visualization.png", bbox_inches='tight', dpi=300)
