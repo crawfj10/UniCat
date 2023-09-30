@@ -4,6 +4,7 @@ import os
 from utils.reranking import re_ranking
 from collections import defaultdict
 
+
 def euclidean_distance(qf, gf, average_gal=False, average_mode=0, g_pids=None, feat_norm=True):
     m = qf.shape[0]
     n = gf.shape[0]
@@ -143,11 +144,5 @@ class R1_mAP_eval():
             print('=> Computing DistMat with euclidean_distance')
             distmat = euclidean_distance(qf, gf)
         cmc, mAP  = eval_func(distmat, q_pids, g_pids, q_camids, g_camids, use_cam=self.use_cam)
-        
+
         return cmc, mAP
-
-
-
-
-
-

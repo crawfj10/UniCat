@@ -17,7 +17,7 @@ MODEL:
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: False
+  USE_FUSION: True
   FUSION_METHOD: 'cat'
   LATE_FUSION: True
   EMBED_DIM: 768
@@ -55,7 +55,7 @@ SOLVER:
   WEIGHT_DECAY:  1e-4
   WEIGHT_DECAY_BIAS: 1e-4
   BIAS_LR_FACTOR: 2
-  SEED: 1234
+  SEED: 1236
   DISCRIM_LR: 1e-4
   DISCRIM_DELAY: 0
 
@@ -64,7 +64,7 @@ TEST:
   IMS_PER_BATCH: 256
   RE_RANKING: False
   WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth'
-  NECK_FEAT: 'after'
+  NECK_FEAT: 'after' 
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
 OUTPUT_DIR: '../logs/mm/rgbnt100/hpo/seed_1234/test'
