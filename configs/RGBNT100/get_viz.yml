@@ -15,7 +15,7 @@ MODEL:
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: False # options: {True, False} whether to use fusion
+  USE_FUSION: True # options: {True, False} whether to use fusion
   FUSION_METHOD: 'cat' # options: {'cat', 'av'}, can only use when USE_FUSION = True
   LATE_FUSION: True # always set to true
   EMBED_DIM: 768
@@ -36,8 +36,8 @@ INPUT:
   PIXEL_STD: [0.5, 0.5, 0.5]
 
 DATASETS:
-  NAMES: ['rgbnt100__rnt']
-  ROOT_DIR: ['/data/datasets/research-datasets/reid_mm/RGBNT100']
+  NAMES: ['rgbn300__rn']
+  ROOT_DIR: ['/data/datasets/research-datasets/reid_mm/RGBN300']
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -67,7 +67,11 @@ TEST:
   RE_RANKING: False
   # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_av_s128x256_bs_256_lr_.016_120.pth' # fusion with avg, but use cat to get correct dim output
   # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth' # fusion with cat
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.016_120.pth' # no fusion 
+  # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.016_120.pth' # no fusion 
+
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbn300/hpo/seed_1236/vit_rn_fusion_av_s128x256_bs_256_lr_.016_120.pth' # fusion with avg, but use cat to get correct dim output
+  # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbn300/hpo/seed_1236/vit_rn_fusion_cat_s128x256_bs_256_lr_.016_120.pth' # fusion with cat
+  # WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbn300/hpo/seed_1236/vit_rn_no_fusion_s128x256_bs_256_lr_.016_120.pth' # no fusion 
   NECK_FEAT: 'before' 
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False

@@ -100,7 +100,7 @@ def visualize_embeddings(feats, pids, num_pid):
 
         plt.legend(handles=legend_elements, loc='upper right')
         plt.title(f"{name} visualization")
-        plt.savefig(f"viz_output/{name.lower()}_visualization_perpid_nofusion_pid-{num_pid}.png", bbox_inches='tight', dpi=300)
+        plt.savefig(f"viz_output/rgbn300_{name.lower()}_visualization_perpid_fusionav_pid-{num_pid}.png", bbox_inches='tight', dpi=300)
 
         if name == "t-SNE":
             centroids = []
@@ -122,7 +122,7 @@ def visualize_embeddings(feats, pids, num_pid):
 
             plt.legend(handles=legend_elements, loc='upper right')
             plt.title("t-SNE visualization with Voronoi diagram")
-            plt.savefig(f"viz_output/tsne_voronoi_visualization_perpid_nofusion_pid-{num_pid}.png", bbox_inches='tight', dpi=300)
+            plt.savefig(f"viz_output/rgbn300_tsne_voronoi_visualization_perpid_fusionav_pid-{num_pid}.png", bbox_inches='tight', dpi=300)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="ReID Baseline Training")
