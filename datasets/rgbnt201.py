@@ -20,7 +20,7 @@ class RGBNT201(BaseImageDataset):
     def __init__(self, root='', verbose=True, pid_begin = 0, mode='r', **kwargs):
         super(RGBNT201, self).__init__()
         
-        assert mode in ('r', 'n', 't', 'rn', 'rt', 'nt', 'rnt')
+       # assert mode in ('r', 'n', 't', 'rn', 'rt', 'nt', 'rnt')
         self.modalities = mode
 
         train_flds, val_flds, test_flds = [], [], []
@@ -42,11 +42,12 @@ class RGBNT201(BaseImageDataset):
         
         #self._check_before_run()
         self.pid_begin = pid_begin
-        train = self._process_files(train_flds, relabel=True)
+        #train = self._process_files(train_flds, relabel=True)
+        train = self._process_files(val_flds, relabel=True)
         query = self._process_files(test_flds, files=test_files, relabel=False)
-        query += self._process_files(val_flds, files=val_files, relabel=False)
+        #query += self._process_files(val_flds, files=val_files, relabel=False)
         gallery = self._process_files(test_flds, files=test_files, relabel=False)
-        gallery += self._process_files(val_flds, files=val_files, relabel=False)
+        #gallery += self._process_files(val_flds, files=val_files, relabel=False)
 
         if verbose:
             print("=> RGBT201 loaded")
