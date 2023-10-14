@@ -7,7 +7,7 @@ MODEL:
   IF_WITH_CENTER: 'no'
   NAME: 'transformer'
   NO_MARGIN: True
-  DEVICE_ID: ('6')
+  DEVICE_ID: ('2')
   TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
   STRIDE_SIZE: [12, 12]
   CLS_TOKEN_NUM: 1
@@ -18,8 +18,8 @@ MODEL:
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: False
-  FUSION_METHOD: 'av'
+  USE_FUSION: True
+  FUSION_METHOD: 'cat'
   LATE_FUSION: True
   EMBED_DIM: 768
   SAME_MODEL: False
@@ -45,18 +45,19 @@ DATALOADER:
 
 SOLVER:
   OPTIMIZER_NAME: 'SGD'
-  MAX_EPOCHS: 120
-  BASE_LR: .008
-  IMS_PER_BATCH: 64
+  MAX_EPOCHS: 60
+  BASE_LR: .032
+  IMS_PER_BATCH: 128
   WARMUP_METHOD: 'linear'
   LARGE_FC_LR: False
-  CHECKPOINT_PERIOD: 120
-  LOG_PERIOD: 20
+  CHECKPOINT_PERIOD: 61
+  LOG_PERIOD: 5
   EVAL_PERIOD: 5
+  MOMENTUM: 0.9
   WEIGHT_DECAY:  1e-4
   WEIGHT_DECAY_BIAS: 1e-4
   BIAS_LR_FACTOR: 2
-  SEED: 0
+  SEED: 1234
   DISCRIM_LR: 1e-4
   DISCRIM_DELAY: 0
 
@@ -64,7 +65,7 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt201/vit_rnt_fusion_av_lr_8e-3_seed_1234_60.pth'
+  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt201/hpo/seed_1236/vit_rnt_171_fusion_cat_s256x128_bs_128_lr_.016_120.pth'
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False

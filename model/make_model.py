@@ -65,9 +65,9 @@ class Backbone(nn.Module):
                            layers=[3, 4, 6, 3])
         print('using resnet50 as a backbone')
 
-       # if pretrain_choice == 'imagenet':
-       #     self.base.load_param(model_path)
-       #     print('Loading pretrained ImageNet model......from {}'.format(model_path))
+        if pretrain_choice == 'imagenet':
+            self.base.load_param(model_path)
+            print('Loading pretrained ImageNet model......from {}'.format(model_path))
 
         self.gap = nn.AdaptiveAvgPool2d(1)
         self.num_classes = num_classes
@@ -84,19 +84,7 @@ class Backbone(nn.Module):
         global_feat = nn.functional.avg_pool2d(x, x.shape[2:4])
         global_feat = global_feat.view(global_feat.shape[0], -1)  # flatten to (bs, 2048)
 
-        #if self.neck == 'no':
-        #    feat = global_feat
-        #elif self.neck == 'bnneck':
-        #    feat = self.bottleneck(global_feat)
-        #cls_score = self.classifier(feat)
         return [global_feat]
-        #if self.training:
-        #    return cls_score, [global_feat]
-        #else:
-        #    if self.neck_feat == 'after':
-        #        return cls_score, [feat]
-        #    else:
-        #        return cls_score, [global_feat]
 
     def load_param(self, trained_path):
         param_dict = torch.load(trained_path)
@@ -142,9 +130,11 @@ class build_transformer(nn.Module):
         else:
             view_num = 0
         if cfg.MODEL.EXTRA_FEAT:
-            assert self.cls_token_num == 1
+#            assert self.cls_token_num == 1
             #self.cls_token_num = len(cfg.MODEL.EXTRA_FEAT) + 1
-            self.in_planes *= (len(cfg.MODEL.EXTRA_FEAT) + 1)
+            self.in_planes *= len(cfg.MODEL.EXTRA_FEAT) * self.cls_token_num
+       # if cfg.INPUT.SPLIT_CHANNEL:
+       #     num_channel = 1
         self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](in_chans=num_channel, stem_conv=cfg.MODEL.STEM_CONV, embed_dim=cfg.MODEL.EMBED_DIM, patch_size=cfg.MODEL.PATCH_SIZE, num_heads=cfg.MODEL.NUM_HEADS, mlp_ratio=cfg.MODEL.MLP_RATIO, qkv_bias=cfg.MODEL.QKV_BIAS, depth=cfg.MODEL.DEPTH, img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
                                                         camera=camera_num, view=view_num, stride_size=cfg.MODEL.STRIDE_SIZE, drop_path_rate=cfg.MODEL.DROP_PATH,
                                                         drop_rate= cfg.MODEL.DROP_OUT,
@@ -175,7 +165,7 @@ class build_transformer(nn.Module):
             bottleneck.apply(weights_init_kaiming)
         
         #if pretrain_choice == 'self':
-         #   self.load_param(model_path)
+        #    self.load_param(model_path)
     
     def forward(self, x, label=None, cam_label= None, view_label=None, random_pos=False):
         global_feats = self.base(x, cam_label=cam_label, view_label=view_label, random_pos=random_pos)
@@ -227,6 +217,8 @@ class build_transformer_local_orig(nn.Module):
             view_num = view_num
         else:
             view_num = 0
+        if cfg.INPUT.SPLIT_CHANNEL:
+            num_channel = 1
         self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](in_chans=num_channel, stem_conv=cfg.MODEL.STEM_CONV, embed_dim=cfg.MODEL.EMBED_DIM, patch_size=cfg.MODEL.PATCH_SIZE, num_heads=cfg.MODEL.NUM_HEADS, mlp_ratio=cfg.MODEL.MLP_RATIO, qkv_bias=cfg.MODEL.QKV_BIAS, depth=cfg.MODEL.DEPTH, cls_token_num=cfg.MODEL.CLS_TOKEN_NUM, img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE, local_feature=cfg.MODEL.JPM, camera=camera_num, view=view_num, use_pos=cfg.MODEL.USE_POS, stride_size=cfg.MODEL.STRIDE_SIZE, drop_path_rate=cfg.MODEL.DROP_PATH)
 
         if pretrain_choice == 'imagenet':
@@ -519,6 +511,7 @@ class LateFusion(nn.Module):
                     c += 1
         assert len(bn_feats) == len(self.classifiers)
         scores = [self.classifiers[i](bn_feat) for i, bn_feat in enumerate(bn_feats)]
+        
         if self.training:
             return scores, feats
         else:
@@ -541,7 +534,7 @@ class LateFusion(nn.Module):
                 print(str(e))
                 print('WARNING:', i, 'was not copied into state dict')
         #raise Exception
-        print('Loading pretrained model from {}'.format(trained_path))
+        print('Loaded pretrained model from {}'.format(trained_path))
 
 __factory_T_type = {
     'vit_base_patch16_224_TransReID': vit_base_patch16_224_TransReID,

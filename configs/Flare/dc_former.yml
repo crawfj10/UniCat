@@ -24,8 +24,8 @@ MODEL:
   SAME_MODEL: False
 
 INPUT:
-  SIZE_TRAIN: [256, 128]
-  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [128, 256]
+  SIZE_TEST: [128, 256]
   PROB: 0.5 # random horizontal flip
   RE_PROB: 0.5 # random erasing
   #GS_PROB: 1.0 
