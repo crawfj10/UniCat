@@ -35,6 +35,7 @@ def do_train(cfg,
     eval_period = cfg.SOLVER.EVAL_PERIOD
     device = "cuda"
     epochs = cfg.SOLVER.MAX_EPOCHS
+    best_mAP = 0
     if not cfg.MODEL.DIST_TRAIN or dist.get_rank() == 0:
         logger = logging.getLogger("transreid.train")
         logger.info('start training')
@@ -152,28 +153,58 @@ def do_train(cfg,
             logger.info("Epoch {} done. Time per batch: {:.3f}[s] Speed: {:.1f}[samples/s]"
                     .format(epoch, time_per_batch, train_loader.batch_size / time_per_batch))
 
-        if epoch % checkpoint_period == 0:
-            if cfg.MODEL.DIST_TRAIN:
-                if dist.get_rank() == 0:
-                    torch.save(model.state_dict(), cfg.CKPT_DIR + '_{}.pth'.format(epoch))
-            else:
-                torch.save(model.state_dict(), cfg.CKPT_DIR + '_{}.pth'.format(epoch))
-        
-        if epoch % eval_period == 0 and (not cfg.MODEL.DIST_TRAIN or dist.get_rank() == 0):
-            model.eval()
-            for n_iter, (img, pid, camid, camid_tensor,  _) in enumerate(val_loader):
-                with torch.no_grad():
-                    img = img.to(device)
-                    camid_tensor = camid_tensor.to(device)
-                    _, feat = model(img, cam_label=camid_tensor)
-                    evaluator.update((feat, pid, camid))
-            cmc, mAP = evaluator.compute()
-            logger.info("Validation Results - Epoch: {}".format(epoch))
-            logger.info("mAP: {:.1%}".format(mAP))
-            for r in [1, 5, 10]:
-                logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
-            torch.cuda.empty_cache()
+        if (not cfg.MODEL.DIST_TRAIN or dist.get_rank() == 0):  # Check rank/distributed status once
+            if epoch % eval_period == 0:
+                mAP = evaluate_model(model, logger, epoch, val_loader, device, evaluator)
+                if should_save_checkpoint(cfg, epoch, eval_period, best_mAP, checkpoint_period, mAP):
+                    save_checkpoint(model, get_save_path(cfg, epoch, best=(mAP > best_mAP))) 
+                    best_mAP = max(best_mAP, mAP)
+            elif should_save_checkpoint(cfg, epoch, eval_period, best_mAP, checkpoint_period):
+                save_checkpoint(model, get_save_path(cfg, epoch))
+
     return None, None
+
+def save_checkpoint(model, save_path):
+    """Saves the model checkpoint to the given save_path."""
+    print("Saving to", save_path)
+    torch.save(model.state_dict(), save_path)
+
+def get_save_path(cfg, epoch, best=False):
+    """Determines the save path based on configurations and epoch."""
+    if best:
+        return os.path.join(cfg.CKPT_DIR, 'best_mAP.pth')
+    return os.path.join(cfg.CKPT_DIR, '_{}.pth'.format(epoch))
+
+def should_save_checkpoint(cfg, epoch, eval_period, best_mAP, checkpoint_period, mAP=None):
+    """
+    Determines if the model checkpoint should be saved.
+    Takes into account the current mAP if provided.
+    """
+    if not (not cfg.MODEL.DIST_TRAIN or dist.get_rank() == 0):
+        return False
+    
+    if epoch % eval_period == 0:
+        return (mAP is None or mAP > best_mAP) if cfg.SOLVER.SAVE_BEST else False
+    
+    return epoch % checkpoint_period == 0
+
+def evaluate_model(model, logger, epoch, val_loader, device, evaluator):
+    """Evaluates the model and logs the results. Returns the current mAP."""
+    model.eval()
+    for n_iter, (img, pid, camid, camid_tensor,  _) in enumerate(val_loader):
+        with torch.no_grad():
+            img = img.to(device)
+            camid_tensor = camid_tensor.to(device)
+            _, feat = model(img, cam_label=camid_tensor)
+            evaluator.update((feat, pid, camid))
+    cmc, mAP = evaluator.compute()
+    logger.info("Validation Results - Epoch: {}".format(epoch))
+    logger.info("mAP: {:.1%}".format(mAP))
+    for r in [1, 5, 10]:
+        logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+    torch.cuda.empty_cache()
+    
+    return mAP
 
 def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode='multi', verbose=True):
     device = "cuda"
