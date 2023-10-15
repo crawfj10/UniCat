@@ -5,9 +5,9 @@ for lr in .032
 do
     for bs in 256
     do
-        CUDA_VISIBLE_DEVICES=4,5,6,7 python -m torch.distributed.launch \
-	--nproc_per_node=4 --master_port 1236 train.py \
-	--config_file configs/RGBNT201/dc_former.yml \
+        CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
+	--nproc_per_node=4 --master_port 1234 train.py \
+	--config_file configs/RGBNT100/unis-mmc.yml \
 	MODEL.DIST_TRAIN True SOLVER.BASE_LR $lr SOLVER.IMS_PER_BATCH $bs \
 	OUTPUT_DIR "${root}_bs_${bs}_lr_${lr}" \
 	MODEL.USE_FUSION True MODEL.FUSION_METHOD 'cat'
