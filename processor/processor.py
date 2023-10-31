@@ -82,9 +82,9 @@ def do_train(cfg,
             
             loss_lst = []
             with amp.autocast(enabled=True):
-                score, feat, feat_bn = model(img, target, cam_label=target_cam, print_ = (n_iter != 0) )
+                score, feat = model(img, target, cam_label=target_cam, print_ = (n_iter != 0) )
                 losses = loss_fn(score, feat, target, target_cam, print_ = (n_iter == 0))
-            id_loss, tri_loss, cen_loss, dis_loss, cc_loss = losses
+            id_loss, tri_loss, cen_loss, dis_loss = losses
             loss = None
             if id_loss is not None:
                 id_loss = sum(id_loss) / len(id_loss)
@@ -104,12 +104,6 @@ def do_train(cfg,
             else:
                 cen_loss = 0
                 loss_lst.append(0)
-            if cc_loss is not None:
-                cc_loss = sum(cc_loss) / len(cc_loss)
-                loss_lst.append(cc_loss.item())
-            else:
-                cc_loss = 0
-                loss_lst.append(0)
             
             if dis_loss is not None and cfg.MODEL.CLS_TOKENS_LOSS:
                 loss_lst.append(dis_loss.item())
@@ -121,8 +115,7 @@ def do_train(cfg,
                 dis_loss = 0
 
             if epoch > cfg.MODEL.DIS_DELAY:
-                loss = cc_loss
-                #loss = id_loss + tri_loss + cen_loss + dis_loss
+                loss = id_loss + tri_loss + cen_loss + dis_loss
             else:
                 loss = dis_loss
             
@@ -156,9 +149,9 @@ def do_train(cfg,
             torch.cuda.synchronize()
             if logger and (n_iter + 1) % log_period == 0:
                 loss_avg = loss_meter.avg
-                logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, ID_Loss: {:.3f}, TRIPLE_Loss: {:.3f}, CENTROID_loss {:.3f}, CC loss {:.3f},  DISSIMILAR Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, ID_Loss: {:.3f}, TRIPLE_Loss: {:.3f}, CENTROID_loss {:.3f}, DISSIMILAR Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
                             .format(epoch, (n_iter + 1), len(train_loader),
-                                    loss_avg[-1], loss_avg[0], loss_avg[1], loss_avg[2], loss_avg[3], loss_avg[4],  acc_meter.avg, scheduler._get_lr(epoch)[0]))
+                                    loss_avg[-1], loss_avg[0], loss_avg[1], loss_avg[2], loss_avg[3], acc_meter.avg, scheduler._get_lr(epoch)[0]))
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)
         if cfg.MODEL.DIST_TRAIN or not logger:
