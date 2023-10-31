@@ -48,6 +48,7 @@ _C.MODEL.PART_ID_RATIO = 1.0
 _C.MODEL.DIS_DELAY = 0
 _C.MODEL.GLOBAL_ONLY = False  # only for transreid
 _C.MODEL.STEM_CONV = False
+_C.MODEL.KL_WEIGHT = 1.0
 
 _C.MODEL.METRIC_LOSS_TYPE = 'ce_triplet'
 # If train with multi-gpu ddp mode, options: 'True', 'False'
@@ -67,6 +68,10 @@ _C.MODEL.USE_FUSION = True
 _C.MODEL.FUSION_METHOD = 'av'
 _C.MODEL.LATE_FUSION = True
 _C.MODEL.SAME_MODEL = False
+_C.MODEL.SAME_CLASS = False
+_C.MODEL.DISENTANGLE = False
+_C.MODEL.SHARED_EMBED_SIZE = 100
+_C.MODEL.REDUCED_EMBED_DIM = 768
 
 # Transformer setting
 _C.MODEL.DROP_PATH = 0.1
@@ -223,11 +228,14 @@ _C.TEST.AVERAGE_GAL = False
 _C.TEST.MEAN_FEAT = False
 # whether to use camera info during eval
 _C.TEST.USE_CAM = True
+_C.TEST.USE_TIME = False
 _C.TEST.CREATE_CAM_EVAL = False
 # Name for saving the distmat after testing.
 _C.TEST.DIST_MAT = "dist_mat.npy"
 # Whether calculate the eval score option: 'True', 'False'
 _C.TEST.EVAL = False
+
+
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
