@@ -278,6 +278,7 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode
                     else:
                         evaluator[i].update((feat[:num_query-c, m*embed_size:(m)*embed_size+num_shared], pid[:num_query-c], camid[:num_query-c]))
                         evaluator[i].update((feat[num_query-c:, n*embed_size:(n)*embed_size+num_shared], pid[num_query-c:], camid[num_query-c:]))
+            c += len(pid)
     torch.cuda.empty_cache()
     
     if eval_mode == 'multi':
