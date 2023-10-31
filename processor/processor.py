@@ -257,6 +257,7 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode
     
     model.eval()
     print('Running all val')
+    c = 0
     for n_iter, (img, pid, camid, camid_tensor, _) in enumerate(val_loader):
         with torch.no_grad():
             img = img.to(device)
