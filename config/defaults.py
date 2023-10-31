@@ -207,6 +207,7 @@ _C.SOLVER.EVAL_PERIOD = 10
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 128, each GPU will
 # contain 16 images per batch
 _C.SOLVER.IMS_PER_BATCH = 64
+_C.SOLVER.SAVE_BEST: True = False
 
 # ---------------------------------------------------------------------------- #
 # TEST
