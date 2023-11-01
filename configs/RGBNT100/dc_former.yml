@@ -1,13 +1,17 @@
 MODEL:
-        #PRETRAIN_CHOICE: 'imagenet'
-  PRETRAIN_CHOICE: 'self'
-  PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.016_120.pth'
-  #PRETRAIN_PATH: '/home/ubuntu/jenni/jx_vit_base_p16_224-80ecf9dd.pth'  
+  PRETRAIN_CHOICE: 'imagenet'
+  #PRETRAIN_CHOICE: 'self'
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1235/vit_rnt_fusion_av_s128x256_bs_256_lr_.008_120.pth'
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.032_120.pth'
+  PRETRAIN_PATH: '/home/ubuntu/jenni/jx_vit_base_p16_224-80ecf9dd.pth'  
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_cm_sim_shared_ch_cm_trip_100_seed_1234_120.pth'
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_shared_ch_cm_trip_100_seed_1234_120.pth'
+  #PRETRAIN_PATH: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_fusion_reduce_50_disentangle_25_seed_1234_120.pth'
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
   NAME: 'transformer'
   NO_MARGIN: True
-  DEVICE_ID: ('2')
+  DEVICE_ID: ('1')
   TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
   STRIDE_SIZE: [12, 12]
   CLS_TOKEN_NUM: 1
@@ -17,11 +21,16 @@ MODEL:
   SIE_COE: 3.0
   METRIC_LOSS_TYPE: 'ce_triplet'
   DEPTH: 12
-  USE_FUSION: True
-  FUSION_METHOD: 'cat'
+  USE_FUSION: False
+  FUSION_METHOD: 'av'
   LATE_FUSION: True
   EMBED_DIM: 768
   SAME_MODEL: False
+  SAME_CLASS: False
+  DIS_DELAY: 0
+  DISENTANGLE: False
+  SHARED_EMBED_DIM: 768
+  REDUCED_EMBED_DIM: 768
 
 INPUT:
   SIZE_TRAIN: [128, 256]
@@ -41,16 +50,17 @@ DATALOADER:
   SAMPLER: 'softmax_triplet'
   NUM_INSTANCE: 4
   NUM_WORKERS: 8
+  TRAIN_RANDOM_ORDER: False
 
 SOLVER:
   OPTIMIZER_NAME: 'SGD'
-  MAX_EPOCHS: 60
-  BASE_LR: .008
+  MAX_EPOCHS: 120
+  BASE_LR: .032
   IMS_PER_BATCH: 256
   WARMUP_METHOD: 'linear'
   LARGE_FC_LR: False
-  CHECKPOINT_PERIOD: 61
-  LOG_PERIOD: 5
+  CHECKPOINT_PERIOD: 60
+  LOG_PERIOD: 1
   EVAL_PERIOD: 5
   WEIGHT_DECAY:  1e-4
   WEIGHT_DECAY_BIAS: 1e-4
@@ -67,6 +77,5 @@ TEST:
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
-OUTPUT_DIR: '../logs/mm/rgbnt100/vit_rnt_no_pretrain_no_fusion'
-CKPT_DIR: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/vit_rnt_no_pretrain_no_fusion'
-
+OUTPUT_DIR: '../logs/mm/rgbnt100/test'
+CKPT_DIR: '../ckpts/mm/rgbnt100/test'

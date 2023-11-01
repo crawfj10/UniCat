@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from utils.meter import AverageMeter, AverageMeterList
 from utils.metrics import R1_mAP_eval
+from utils.metrics_new import R1_mAP_eval_new
 from torch.cuda import amp
 import torch.distributed as dist
 import numpy as np
@@ -19,6 +20,7 @@ from loss.softmax_loss import CrossEntropyLabelSmooth
 import torch.nn.functional as F
 import numpy as np
 import random
+import re
 
 def do_train(cfg,
              model,
@@ -67,6 +69,11 @@ def do_train(cfg,
         scheduler.step(epoch)
         model.train()
         for n_iter, (img, pid, _, target_cam, paths) in enumerate(train_loader):
+            #print(img[0,0,:,0,0])
+            #print(img[0,1,:,0,0])
+            #print(img[0,2,:,0,0])
+            #print(img.size())
+            #raise Exception
             optimizer.zero_grad()
             optimizer_center.zero_grad()
             img = img.to(device)
@@ -144,7 +151,7 @@ def do_train(cfg,
                 loss_avg = loss_meter.avg
                 logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, ID_Loss: {:.3f}, TRIPLE_Loss: {:.3f}, CENTROID_loss {:.3f}, DISSIMILAR Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
                             .format(epoch, (n_iter + 1), len(train_loader),
-                                    loss_avg[-1], loss_avg[0], loss_avg[1], loss_avg[2], loss_avg[3],  acc_meter.avg, scheduler._get_lr(epoch)[0]))
+                                    loss_avg[-1], loss_avg[0], loss_avg[1], loss_avg[2], loss_avg[3], acc_meter.avg, scheduler._get_lr(epoch)[0]))
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)
         if cfg.MODEL.DIST_TRAIN or not logger:
@@ -208,15 +215,23 @@ def evaluate_model(model, logger, epoch, val_loader, device, evaluator):
 
 def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode='multi', verbose=True):
     device = "cuda"
-    assert eval_mode in ('multi', 'single')
+    assert eval_mode in ('multi', 'single', 'cross')
     if eval_mode == 'multi':
         evaluator = R1_mAP_eval(num_query, num_mode=num_mode, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
         evaluator.reset()
-    else:
+    elif eval_mode == 'single':
         assert not cfg.TEST.MEAN_FEAT 
         assert not cfg.MODEL.USE_FUSION  # model may have been trained with fusion but to obtain single-modal metrics turn this flag off
         evaluator = []
         for _ in range(num_mode):
+            evaluator.append(R1_mAP_eval(num_query, num_mode=1, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING))
+            evaluator[-1].reset()
+    else:
+        # eval_mode == 'cross'
+        assert not cfg.TEST.MEAN_FEAT
+        assert not cfg.MODEL.USE_FUSION  # model may have been trained with fusion but to obtain cross-modal metrics turn this flag off
+        evaluator = []
+        for _ in range(num_mode*num_mode):
             evaluator.append(R1_mAP_eval(num_query, num_mode=1, max_rank=50, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING))
             evaluator[-1].reset()
 
@@ -231,8 +246,11 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode
     else:
         embed_size = cfg.MODEL.EMBED_DIM
 
+    num_shared = cfg.MODEL.SHARED_EMBED_DIM
+    
     model.eval()
     print('Running all val')
+    c = 0
     for n_iter, (img, pid, camid, camid_tensor, _) in enumerate(val_loader):
         with torch.no_grad():
             img = img.to(device)
@@ -240,9 +258,20 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode
             _, feat = model(img, cam_label=camid_tensor) # feat has size (B, num_mode*nbr_cls*H)
             if eval_mode == 'multi':
                 evaluator.update((feat, pid, camid))
-            else:
+            elif eval_mode == 'single':
                 for m in range(num_mode):
                     evaluator[m].update((feat[:, m*embed_size:(m+1)*embed_size], pid, camid))
+            else:
+                # eval_mode == 'cross'
+                for i, (m, n) in enumerate([(m,n) for m in range(num_mode) for n in range(num_mode)]):
+                    if c + len(pid) <= num_query:
+                        evaluator[i].update((feat[:, m*embed_size:(m)*embed_size+num_shared], pid, camid))
+                    elif c >= num_query:
+                        evaluator[i].update((feat[:, n*embed_size:(n)*embed_size+num_shared], pid, camid))
+                    else:
+                        evaluator[i].update((feat[:num_query-c, m*embed_size:(m)*embed_size+num_shared], pid[:num_query-c], camid[:num_query-c]))
+                        evaluator[i].update((feat[num_query-c:, n*embed_size:(n)*embed_size+num_shared], pid[num_query-c:], camid[num_query-c:]))
+            c += len(pid)
     torch.cuda.empty_cache()
     
     if eval_mode == 'multi':
@@ -251,20 +280,86 @@ def do_inference(cfg, model, val_loader, num_query, num_cam, num_mode, eval_mode
             print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
         return mAP, cmc
 
-    # doing single-modality (intra-modal) inference 
     cmc_dict = {}
     map_dict = {}
-    for m in range(num_mode):
-        cmc, mAP = evaluator[m].compute()
-        if verbose:
-            print('Mode', str(m), ':')
-            print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
-        cmc_dict[m] = cmc
-        map_dict[m] = mAP
+
+    if eval_mode == 'single':
+        for m in range(num_mode):
+            cmc, mAP = evaluator[m].compute()
+            if verbose:
+                print('Mode', str(m), ':')
+                print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
+            cmc_dict[m] = cmc
+            map_dict[m] = mAP
+    elif eval_mode == 'cross':
+        for i, (m,n) in enumerate([(m,n) for m in range(num_mode) for n in range(num_mode)]):
+            cmc, mAP = evaluator[i].compute()
+            if verbose:
+                print('Mode', str(m) + '->' + str(n), ':')
+                print('mAP:', mAP, 'Rank-1:', cmc[0], 'Rank-5:', cmc[4], 'Rank-10:', cmc[9])
+            cmc_dict[(m, n)] = cmc
+            map_dict[(m, n)] = mAP
+
     return map_dict, cmc_dict
 
 
+def check_classifiers(cfg, model, train_loader, num_query, num_cam):
 
+    device = "cuda"
+    if device:
+        if torch.cuda.device_count() > 1:
+            print('Using {} GPUs for inference'.format(torch.cuda.device_count()))
+            model = nn.DataParallel(model)
+        model.to(device)
+
+    mode_feats = defaultdict(list)
+    model.eval()
+
+    classifier = model.classifiers[0].weight
+    print(classifier.size())
+    cls_0, cls_1, cls_2 = classifier[:, :768], classifier[:,768:768*2], classifier[:, 768*2:768*3]
+    print('Running all val')
+    pid_to_s1, pid_to_s2, pid_to_s3 = {}, {}, {}
+    pid_to_snet = {}
+    all_s1, all_s2, all_s3 = [], [], []
+    for n_iter, (img, pid, camid, camid_tensor, paths) in enumerate(train_loader):
+        with torch.no_grad():
+            img = img.to(device)
+            camid_tensor = camid_tensor.to(device)
+            scores, feat = model(img, cam_label=camid_tensor)
+            f1, f2, f3 = feat[:, :768], feat[:, 768:768*2], feat[:, 768*2:768*3]
+            s1 = cls_0 @ f1.T
+            s2, s3 = cls_1 @ f2.T, cls_2 @ f3.T
+            s1 = nn.functional.softmax(s1, dim=0)
+            s2 = nn.functional.softmax(s2, dim=0)
+            s3 = nn.functional.softmax(s3, dim=0)
+            snet = nn.functional.softmax(scores[0], dim=1)
+
+            s1 = s1[list(pid), list(range(s1.size(1)))]
+            s2 = s2[list(pid), list(range(s2.size(1)))]
+            s3 = s3[list(pid), list(range(s3.size(1)))]
+            snet = snet[list(range(snet.size(0))), list(pid)]
+            for i, id_ in enumerate(pid):
+                path_ = paths[i]
+                path_ = path_.split('/')[-1]
+                id_ = int(re.match('[0-9]+', path_).group(0))
+                if id_ not in pid_to_s1: 
+                    pid_to_s1[id_] = []
+                    pid_to_s2[id_] = []
+                    pid_to_s3[id_] = []
+                    pid_to_snet[id_] = []
+                pid_to_s1[id_].append(s1[i].item())
+                pid_to_s2[id_].append(s2[i].item())
+                pid_to_s3[id_].append(s3[i].item())
+                pid_to_snet[id_].append(snet[i].item())
+                all_s1.append(s1[i].item())
+                all_s2.append(s2[i].item())
+                all_s3.append(s3[i].item())
+            
+    for pid in pid_to_s1:
+        print(pid, np.mean(pid_to_snet[pid]), np.mean(pid_to_s1[pid]), np.mean(pid_to_s2[pid]), np.mean(pid_to_s3[pid]))
+    print(np.mean(all_s1), np.mean(all_s2), np.mean(all_s3))
+    raise Exception
 def check_kl(cfg, model, val_loader, num_query, num_cam):
 
     device = "cuda"
@@ -343,12 +438,16 @@ def check_ortho(cfg, model, val_loader, num_query, num_cam):
 
     
 
-def do_ranking_history(cfg, model, val_loader, num_query):
-    raise NotImplementedError # TODO
+def do_ranking_history(cfg, model, val_loader, num_query, num_cam, num_mode=3):
+
     device = 'cuda'
-    save_path = '/home/ubuntu/jenni/ranking_history/prai/'
-    evaluator = RankingHistory(num_query, save_path, max_rank=10, use_cam=cfg.TEST.USE_CAM, feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)
-    evaluator.reset()
+    save_path = '/home/ubuntu/jenni/ranking_history/flare/'
+    
+    evaluator = [RankingHistory(num_query, save_path + 'multi/', max_rank=10, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING)]
+    evaluator[-1].reset()
+    for i in range(num_mode):
+        evaluator.append(RankingHistory(num_query, save_path + str(i) + '/', max_rank=10, use_cam=cfg.TEST.USE_CAM and (num_cam > 1), feat_norm=cfg.TEST.FEAT_NORM, reranking=cfg.TEST.RE_RANKING))
+        evaluator[-1].reset()
 
     if device:
         if torch.cuda.device_count() > 1:
@@ -356,19 +455,32 @@ def do_ranking_history(cfg, model, val_loader, num_query):
             model = nn.DataParallel(model)
         model.to(device)
 
+    if cfg.MODEL.NAME == 'transformer':
+        embed_size = cfg.MODEL.CLS_TOKEN_NUM * cfg.MODEL.EMBED_DIM
+    else:
+        embed_size = cfg.MODEL.EMBED_DIM
+
     model.eval()
     img_path_list = []
     print('Running all val')
-    for n_iter, (img, pid, camid, camids, target_view, imgpath) in enumerate(val_loader):
+    for n_iter, (img, pid, camid, camids, imgpath) in enumerate(val_loader):
         with torch.no_grad():
             img = img.to(device)
             camids = camids.to(device)
-            target_view = target_view.to(device)
-            feat = model(img, cam_label=camids, view_label=target_view)
-            evaluator.update((feat, pid, camid, imgpath))
+            _, feat = model(img, cam_label=camids)
+            evaluator[0].update((feat, pid, camid, imgpath))
             img_path_list.extend(imgpath)
-
-    evaluator.compute()
+            for m in range(num_mode):
+                if m == 1:
+                    new_imgpath = [re.sub('vis', 'ni', p) for p in imgpath]
+                elif m == 2:
+                    new_imgpath = [re.sub('vis', 'th', p) for p in imgpath]
+                else:
+                    new_imgpath = imgpath
+                evaluator[m+1].update((feat[:, m*embed_size:(m+1)*embed_size], pid, camid, new_imgpath))
+    for e in evaluator:
+        e.compute()
+        raise Exception
 
 
 
