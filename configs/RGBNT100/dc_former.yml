@@ -55,11 +55,7 @@ SOLVER:
   WEIGHT_DECAY:  1e-4
   WEIGHT_DECAY_BIAS: 1e-4
   BIAS_LR_FACTOR: 2
-<<<<<<< Updated upstream
-  SEED: 1236
-=======
   SEED: 1235
->>>>>>> Stashed changes
   DISCRIM_LR: 1e-4
   DISCRIM_DELAY: 0
 
@@ -67,13 +63,8 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-<<<<<<< Updated upstream
-  WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_fusion_cat_s128x256_bs_256_lr_.016_120.pth'
-  NECK_FEAT: 'after' 
-=======
   WEIGHT: '/home/ubuntu/jenni/ckpts/mm/rgbnt100/hpo/seed_1236/vit_rnt_no_fusion_s128x256_bs_256_lr_.016_120.pth'
   NECK_FEAT: 'before'
->>>>>>> Stashed changes
   FEAT_NORM: 'yes'
   AVERAGE_GAL: False
 OUTPUT_DIR: '../logs/mm/rgbnt100/vit_rnt_no_pretrain_no_fusion'
