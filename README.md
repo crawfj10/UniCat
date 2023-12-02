@@ -1,61 +1,41 @@
 
-# [AAAI2023] DC-Former: Diverse and Compact Transformer for Person Re-Identification
+# [UniReps @ NeurIPS 2023] UniCat: Crafting a Stronger Fusion Baseline for Multimodal Re-Identification
 
-The repository for  [DC-Former: Diverse and Compact Transformer for Person Re-Identification] achieves state-of-the-art performances on 3 commonly used person re-ID including MSMT17, Market-1501 and CUHK03.
+The repository for  [UniCat: Crafting a Stronger Fusion Baseline for Multimodal Re-Identification](https://arxiv.org/pdf/2310.18812.pdf) achieves state-of-the-art performances on 3 commonly used multimodal ReID datasets RGBNT100, RGBN300, and RGBNT201. 
 
 
-## Overview
-In person re-identification (re-ID) task, it is still challenging to learn discriminative representation by deep learning, due to limited data. Generally speaking, the model will get better performance when increasing the amount of data. The addition of similar classes strengthens the ability of the classifier to identify similar identities, thereby improving the discrimination of representation. In this paper, we propose a Diverse and Compact Transformer (DC-Former) that can achieve a similar effect by splitting embedding space into multiple diverse and compact subspaces. Compact embedding subspace helps model learn more robust and discriminative embedding to identify similar classes. And the fusion of these diverse embeddings containing more fine-grained information can further improve the effect of re-ID. Specifically, multiple class tokens are used in vision transformer to represent multiple embedding spaces. Then, a self-diverse constraint (SDC) is applied to these spaces to push them away from each other, which makes each embedding space diverse and compact. Further, a dynamic weight controller (DWC) is further designed for balancing the relative importance among them during training. The experimental results of our method are promising, which surpass previous state-of-the-art methods on several commonly used person re-ID benchmarks. Our code will be publicly available soon.
+## Abstract
+Multimodal Re-Identification (ReID) is a popular retrieval task that aims to reidentify objects across diverse data streams, prompting many researchers to integrate multiple modalities into a unified representation. While such fusion promises a holistic view, our investigations shed light on potential pitfalls. We uncover that prevailing late-fusion techniques often produce suboptimal latent representations when compared to methods that train modalities in isolation. We argue that this effect is largely due to the inadvertent relaxation of the training objectives on individual modalities when using fusion, what others have termed modality laziness. We present a nuanced point-of-view that this relaxation can lead to certain modalities failing to fully harness available task-relevant information, and yet, offers a protective veil to noisy modalities, preventing them from overfitting to taskirrelevant data. Our findings also show that unimodal concatenation (UniCat) and other late-fusion ensembling of unimodal backbones, when paired with best-known training techniques, exceed the current state-of-the-art performance across several multimodal ReID benchmarks. By unveiling the double-edged sword of "modality laziness", we motivate future research in balancing local modality strengths with global representations.
 
-![framework](figs/framework.png)
+The following shows a sample of paired data from the RGBNT100 dataset: 
+
+![framework](figs/paireddatasample.png)
 
 ## Performance
 
-![framework](figs/exp.png)
+Please see our paper for discussion on the noisy RGBNT201 dataset:
 
+![framework](figs/tableresults.png)
+
+Further analyzing within each modality, we find that our method learns the most task-relevant information: 
+
+![framework](figs/resultsforeachmodality.png)
 
 ## Training
 
 We utilize 4 GPUs for training.
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
-    python -m torch.distributed.launch --nproc_per_node=4 --master_port 66666 train.py --config_file configs/MSMT17/vit_transreid_stride_384.yml \
-    MODEL.DIST_TRAIN True \
-    INPUT.GS_PROB 1.0 \
-    MODEL.JPM False \
-    MODEL.PRETRAIN_PATH $PRETRAIN_PATH \
-    MODEL.CLS_TOKEN_NUM 2 \
-    MODEL.CLS_TOKENS_LOSS True \
-    MODEL.DYNAMIC_BALANCER False \
-    DATASETS.ROOT_DIR $DATAROOT \
-    SOLVER.BASE_LR 0.032 \
-    SOLVER.IMS_PER_BATCH 256 \
-    SOLVER.MAX_EPOCHS 180 \
-    SOLVER.CHECKPOINT_PERIOD 180 \
-    SOLVER.EVAL_PERIOD 180 \
-    TEST.MEAN_FEAT False \
-    OUTPUT_DIR $OUTPUT_DIR
+sh ./hpo.sh
 ```
 
 ## Evaluation
 
 ```bash
-python test.py --config_file configs/MSMT17/vit_transreid_stride_384.yml \
-    INPUT.GS_PROB 1.0 \
-    MODEL.DEVICE_ID "('0')" \
-    MODEL.JPM False \
-    MODEL.PRETRAIN_PATH $PRETRAIN_PATH \
-    MODEL.PRETRAIN_CHOICE self \
-    MODEL.CLS_TOKEN_NUM 2 \
-    MODEL.CLS_TOKENS_LOSS True \
-    DATASETS.ROOT_DIR $DATAROOT \
-    TEST.MEAN_FEAT False \
-    TEST.WEIGHT $CHECKPOINT_PATH \
-    OUTPUT_DIR $OUTPUT_DIR
+sh ./test.sh
 ```
 
 ## Acknowledgement
 
-Codebase from [TransReID](https://github.com/damo-cv/TransReID)
+Codebase built off from [TransReID](https://github.com/damo-cv/TransReID)
 
